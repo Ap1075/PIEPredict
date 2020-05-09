@@ -32,7 +32,10 @@ import tensorflow as tf
 from prettytable import PrettyTable
 
 dim_ordering = K.image_dim_ordering()
-
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.5
+K.tensorflow_backend.set_session(tf.Session(config=config))
 
 def train_predict(dataset='pie',
                   train_test=2, 
@@ -99,7 +102,7 @@ def train_predict(dataset='pie',
 #train models with data up to critical point
 #only for PIE
 #train_test = 0 (train only), 1 (train-test), 2 (test only)
-def train_intent(train_test=1):
+def train_intent(train_test=2):
 
     data_opts = {'fstride': 1,
             'sample_type': 'all', 
@@ -155,12 +158,13 @@ def train_intent(train_test=1):
         if saved_files_path == '':
             saved_files_path = pretrained_model_path
         beh_seq_test = imdb.generate_data_trajectory_sequence('test', **data_opts)
+        print('beh sq test shape: ', beh_seq_test.keys())
         acc, f1 = t.test_chunk(beh_seq_test, data_opts, saved_files_path, False)
-        
+
         t = PrettyTable(['Acc', 'F1'])
         t.title = 'Intention model (local_context + bbox)'
         t.add_row([acc, f1])
-        
+
         print(t)
 
         K.clear_session()
@@ -170,7 +174,7 @@ def train_intent(train_test=1):
 def main(dataset='pie', train_test=2):
 
       intent_model_path = train_intent(train_test=train_test)
-      train_predict(dataset=dataset, train_test=train_test, intent_model_path=intent_model_path)
+      # train_predict(dataset=dataset, train_test=train_test, intent_model_path=intent_model_path)
 
 
 if __name__ == '__main__':

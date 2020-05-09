@@ -2,7 +2,7 @@
 The code implementation of the paper:
 
 A. Rasouli, I. Kotseruba, T. Kunic, and J. Tsotsos, "PIE: A Large-Scale Dataset and Models for Pedestrian Intention Estimation and
-Trajectory Prediction", ICCV 2019.
+Trajectory Prediction", ICCV 2016.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,10 +22,12 @@ import numpy as np
 import os
 import pickle
 import time
-
+import pandas as pd
 from keras import backend as K
 from keras import regularizers
+# from keras.applications import vgg16
 from keras.applications import vgg16
+# from keras.applications import vgg16
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import ReduceLROnPlateau
@@ -49,7 +51,7 @@ from utils import *
 #from utilities.jaad_eval import *
 #from utilities.jaad_utilities import *
 #from utilities.train_utilities import *
-
+import cv2
 K.set_image_dim_ordering('tf')
 
 
@@ -107,7 +109,7 @@ class PIEIntent(object):
         self._convlstm_kernel_size = convlstm_kernel_size
 
         #self._encoder_dense_output_size = 1 # set this only for single lstm unit
-        self._encoder_input_size = 4  # decided on run time according to data
+        self._encoder_input_size = 4  # decided on run time according to data OG
 
         self._decoder_dense_output_size = 1
         self._decoder_input_size = 4  # decided on run time according to data
@@ -130,7 +132,7 @@ class PIEIntent(object):
         as needed.
         :param type_save: Specifies whether data or model is saved.
         :param models_save_folder: model name (e.g. train function uses timestring "%d%b%Y-%Hh%Mm%Ss")
-        :param model_name: model name (either trained convlstm_encdec model or vgg16)
+        :param model_name: model name (either trained convlstm_encdec model or vgg16.VGG16)
         :param file_name: Actual file of the file (e.g. model.h5, history.h5, config.pkl)
         :param data_subset: train, test or val
         :param data_type: type of the data (e.g. features_context_pad_resize)
@@ -215,7 +217,7 @@ class PIEIntent(object):
         """
         Generates image features for convLSTM input. The images are first
         cropped to 1.5x the size of the bounding box, padded and resized to
-        (224, 224) and fed into pretrained VGG16.
+        (224, 224) and fed into pretrained.
         :param img_sequences: a list of frame names
         :param bbox_sequences: a list of corresponding bounding boxes
         :ped_ids: a list of pedestrian ids associated with the sequences
@@ -233,10 +235,18 @@ class PIEIntent(object):
 
         sequences = []
         i = -1
+        switch = False
         for seq, pid in zip(img_sequences, ped_ids):
             i += 1
             update_progress(i / len(img_sequences))
             img_seq = []
+            if i>=2831: #OG for vgg16
+            # if i>=2560:
+                # switch = False
+                # print('Found that switch was true, skipped previous img at i= ', i-1)
+                print('Done till 2560')
+                break
+            #     continue
             for imp, b, p in zip(seq, bbox_sequences[i], pid):
                 set_id = imp.split('/')[-3]
                 vid_id = imp.split('/')[-2]
@@ -251,12 +261,18 @@ class PIEIntent(object):
                         except:
                             img_features = pickle.load(fid, encoding='bytes')
                 else:
-                    img_data = load_img(imp)
+                    try:
+                        img_data = load_img(imp)
+                    except FileNotFoundError:
+                        print("No image present at  ", imp)
+                        switch = True
+                        # continue
+                        break
                     bbox = jitter_bbox(imp, [b],'enlarge', 2)[0]
                     bbox = squarify(bbox, 1, img_data.size[0])
                     bbox = list(map(int,bbox[0:4]))
                     cropped_image = img_data.crop(bbox)
-                    img_data = img_pad(cropped_image, mode='pad_resize', size=224)                        
+                    img_data = img_pad(cropped_image, mode='pad_resize', size=224)
                     image_array = img_to_array(img_data)
                     preprocessed_img = vgg16.preprocess_input(image_array)
                     expanded_img = np.expand_dims(preprocessed_img, axis=0)
@@ -269,6 +285,7 @@ class PIEIntent(object):
                 img_seq.append(img_features)
             sequences.append(img_seq)
         sequences = np.array(sequences)
+        print("!$!$!$!!$$!$$!$!$!$ VGG features shape", sequences[0][0].shape)
         return sequences
 
     def get_tracks(self, dataset, data_type, seq_length, overlap):
@@ -396,6 +413,7 @@ class PIEIntent(object):
 
         # Generate observation data input to encoder
         encoder_input = self.concat_data(tracks, train_params['data_type']['encoder_input_type'])
+        # print("tracks shape is here*******: ", (tracks))
         decoder_input = self.concat_data(tracks, train_params['data_type']['decoder_input_type'])
         output = self.concat_data(tracks, train_params['data_type']['output_type'])
         if len(decoder_input) == 0:
@@ -415,7 +433,12 @@ class PIEIntent(object):
                                                                         model_name='vgg16_none',
                                                                         data_subset='test'))
         output = output[:, 0]
-        return ([test_img, decoder_input], output)
+        print('decoder input shape: ',decoder_input[:2831,:,:].shape)
+        print('test_img shape: \n',test_img.shape)
+        print('output shape: \n',output.shape)
+        return ([test_img, decoder_input[:2831,:,:]], output[:2831,:]) #OG for vgg16
+        # return ([test_img, decoder_input[:2560,:,:]], output[:2560,:])
+        # return ([test_img, np.asarray(encoder_input)], output)
 
     def get_model(self, model):
         train_model = self.pie_convlstm_encdec()
@@ -545,7 +568,7 @@ class PIEIntent(object):
                                                  data_type='train',
                                                  save_path=self.get_path(type_save='data',
                                                                          data_type='features'+'_'+data_opts['crop_type']+'_'+data_opts['crop_mode'], # images    
-                                                                         model_name='vgg16_'+'none',
+                                                                         model_name='vgg16.VGG16'+'none',
                                                                          data_subset = 'train'))
         val_img = self.load_images_and_process(val_d['images'],
                                                val_d['bboxes'],
@@ -553,13 +576,16 @@ class PIEIntent(object):
                                                data_type='val',
                                                save_path=self.get_path(type_save='data',
                                                                        data_type='features'+'_'+data_opts['crop_type']+'_'+data_opts['crop_mode'],
-                                                                       model_name='vgg16_'+'none',
+                                                                       model_name='vgg16.VGG16'+'none',
                                                                        data_subset='val'))
 
         train_model = self.pie_convlstm_encdec()
 
         train_d['output'] = train_d['output'][:, 0]
         val_d['output'] = val_d['output'][:, 0]
+
+        print("SHAPE OF IMAGE************** ", train_img )
+        print("SHAPE OF dec input************** ", train_d['decoder_input'] )
 
         train_data = ([train_img, train_d['decoder_input']], train_d['output'])
         val_data = ([val_img, val_d['decoder_input']], val_d['output'])
@@ -646,7 +672,7 @@ class PIEIntent(object):
                    data_test,
                    data_opts='',
                    model_path='',
-                   visualize=False):
+                   visualize=True):
             with open(os.path.join(model_path, 'configs.pkl'), 'rb') as fid:
                 try:
                     configs = pickle.load(fid)
@@ -679,7 +705,9 @@ class PIEIntent(object):
 
             vis_results = []
 
-            for i in range(0, len(data_test['image']), 100):
+            # for i in range(0, len(data_test['image']), 100): OG
+            for i in range(0, 1):
+                # print('!!!!!!!!!!!!!!!printing is here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n', i)
 
                 data_test_chunk = {}
                 data_test_chunk['intention_binary'] = data_test['intention_binary'][i:min(i+100, num_samples)]
@@ -688,17 +716,19 @@ class PIEIntent(object):
                 data_test_chunk['intention_prob'] = data_test['intention_prob'][i:min(i+100,num_samples)]
                 data_test_chunk['bbox'] = data_test['bbox'][i:min(i+100,num_samples)]
 
+                #print('data_test_chunk (input of get_test_data has keys: ', data_test_chunk.keys())
                 test_data_chunk, test_target_data_chunk = self.get_test_data(data_test_chunk,
                                                                                     train_params,
                                                                                     self._sequence_length,
                                                                                     overlap)
-
                 tracks, images_chunk, bboxes_chunk, ped_ids_chunk = self.get_tracks(data_test_chunk,
                                                                                            train_params['data_type'],
                                                                                            self._sequence_length,
                                                                                            overlap)
 
 
+                print('type this: ',type(test_data_chunk[1]))
+                print('shape this: ',(test_data_chunk[1]).shape)
                 test_results_chunk = test_model.predict(test_data_chunk,
                                                         batch_size=train_params['batch_size'],
                                                         verbose=1)
@@ -712,6 +742,27 @@ class PIEIntent(object):
                 i = -1
                 for imp, box, ped in zip(images_chunk, bboxes_chunk, ped_ids_chunk):
                     i+=1
+                    if i >= 2831: #OG for vgg16
+                    # if i >= 2560:
+                        break
+                    # i+=1
+                    try:
+                        print('trying to save')
+                        print(box[-1])
+                        print('\n')
+                        # print(len(box[-1]))
+                        # print('\n')
+                        start = int(box[-1][0]), int(box[-1][1])
+                        end = int(box[-1][2]), int(box[-1][3])
+                        imgg = cv2.imread(imp[-1])
+                        cv2.rectangle(imgg, start, end, (0,0,255), 2)
+                        # cv2.rectangle(img_to_array(load_img(imp[-1])), start, end, (0,0,255), 2)
+                        # cv2.imwrite('/media/armaan/AP-HD/DOCUMENTS/test/{}.png'.format(imp[-1].split('/')[-1].split('.')[0]), cv2.cvtColor(img_to_array(load_img(imp[-1]), cv2.COLOR_RGB2BGR)))
+                        cv2.imwrite('/media/armaan/AP-HD/DOCUMENTS/test/{}.png'.format(imp[-1].split('/')[-1].split('.')[0]), imgg)
+                    except FileNotFoundError:
+                        print("File not found error \n")
+                        continue
+
                     vis_results.append({'imp': imp[-1], 
                                         'bbox': box[-1],
                                         'ped_id': ped[-1][0],
