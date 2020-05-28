@@ -746,22 +746,24 @@ class PIEIntent(object):
                     # if i >= 2560:
                         break
                     # i+=1
-                    try:
-                        print('trying to save')
-                        print(box[-1])
-                        print('\n')
-                        # print(len(box[-1]))
-                        # print('\n')
-                        start = int(box[-1][0]), int(box[-1][1])
-                        end = int(box[-1][2]), int(box[-1][3])
-                        imgg = cv2.imread(imp[-1])
-                        cv2.rectangle(imgg, start, end, (0,0,255), 2)
-                        # cv2.rectangle(img_to_array(load_img(imp[-1])), start, end, (0,0,255), 2)
-                        # cv2.imwrite('/media/armaan/AP-HD/DOCUMENTS/test/{}.png'.format(imp[-1].split('/')[-1].split('.')[0]), cv2.cvtColor(img_to_array(load_img(imp[-1]), cv2.COLOR_RGB2BGR)))
-                        cv2.imwrite('/media/armaan/AP-HD/DOCUMENTS/test/{}.png'.format(imp[-1].split('/')[-1].split('.')[0]), imgg)
-                    except FileNotFoundError:
-                        print("File not found error \n")
-                        continue
+                    # Commented
+                    # try:
+                    #     print('trying to save')
+                    #     print(box[-1])
+                    #     print('\n')
+                    #     # print(len(box[-1]))
+                    #     # print('\n')
+                    #     start = int(box[-1][0]), int(box[-1][1])
+                    #     end = int(box[-1][2]), int(box[-1][3])
+
+                    #     imgg = cv2.imread(imp[-1])
+                    #     cv2.rectangle(imgg, start, end, (0,0,255), 2)
+                    #     # cv2.rectangle(img_to_array(load_img(imp[-1])), start, end, (0,0,255), 2)
+                    #     # cv2.imwrite('/media/armaan/AP-HD/DOCUMENTS/test/{}.png'.format(imp[-1].split('/')[-1].split('.')[0]), cv2.cvtColor(img_to_array(load_img(imp[-1]), cv2.COLOR_RGB2BGR)))
+                    #     # cv2.imwrite('/media/armaan/AP-HD/DOCUMENTS/test/{}.png'.format(imp[-1].split('/')[-1].split('.')[0]), imgg)
+                    # except FileNotFoundError:
+                    #     print("File not found error \n")
+                    #     continue
 
                     vis_results.append({'imp': imp[-1], 
                                         'bbox': box[-1],

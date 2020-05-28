@@ -34,7 +34,7 @@ from prettytable import PrettyTable
 dim_ordering = K.image_dim_ordering()
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.per_process_gpu_memory_fraction = 0.5
+config.gpu_options.per_process_gpu_memory_fraction = 0.3
 K.tensorflow_backend.set_session(tf.Session(config=config))
 
 def train_predict(dataset='pie',
